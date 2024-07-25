@@ -8,6 +8,7 @@ import { ISemver } from "src/universal/ISemver.sol";
 import { SuperchainConfig } from "src/L1/SuperchainConfig.sol";
 import { SystemConfig } from "src/L1/SystemConfig.sol";
 
+// 跨链信使合约：主要编写进行了各种要触发跨链事件的函数。
 /// @custom:proxied
 /// @title L1CrossDomainMessenger
 /// @notice The L1CrossDomainMessenger is a message passing interface between L1 and L2 responsible

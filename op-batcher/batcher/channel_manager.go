@@ -35,7 +35,7 @@ type channelManager struct {
 	blocks []*types.Block
 	// The latest L1 block from all the L2 blocks in the most recently closed channel
 	l1OriginLastClosedChannel eth.BlockID
-	// last block hash - for reorg detection
+	// last block hash - for reorg detection（用于重组检测）
 	tip common.Hash
 
 	// channel to write new block data to
@@ -179,6 +179,7 @@ func (s *channelManager) TxData(l1Head eth.BlockID) (txData, error) {
 		return txData{}, err
 	}
 
+	// processBlocks: 将块从块队列添加到待处理通道，直到队列耗尽或通道已满。
 	if err := s.processBlocks(); err != nil {
 		return txData{}, err
 	}
@@ -186,6 +187,8 @@ func (s *channelManager) TxData(l1Head eth.BlockID) (txData, error) {
 	// Register current L1 head only after all pending blocks have been
 	// processed. Even if a timeout will be triggered now, it is better to have
 	// all pending blocks be included in this channel for submission.
+	// registerL1Block: 在挂起的通道上注册给定的块，仅在处理完所有待处理块后才注册当前 L1 头。
+	//即使现在会触发超时，最好还是让所有待处理的区块都包含在这个通道中提交。
 	s.registerL1Block(l1Head)
 
 	if err := s.outputFrames(); err != nil {

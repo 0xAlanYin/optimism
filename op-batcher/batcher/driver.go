@@ -149,7 +149,10 @@ func (l *BatchSubmitter) StopBatchSubmitting(ctx context.Context) error {
 // 4. Load all new blocks into the local state.
 // If there is a reorg, it will reset the last stored block but not clear the internal state so
 // the state can be flushed to L1.
+// loadBlocksIntoState 加载自上一个存储块以来的所有块
 func (l *BatchSubmitter) loadBlocksIntoState(ctx context.Context) error {
+	// calculateL2BlockRangeToStore 获取并判断需要提交的最新 L2 的 start 和 end 块号，起始的区块为 L2 当前安全的最高块；
+	//结束区块为 L2 当前最高的不安全的区块。
 	start, end, err := l.calculateL2BlockRangeToStore(ctx)
 	if err != nil {
 		l.Log.Warn("Error calculating L2 block range", "err", err)
@@ -161,19 +164,23 @@ func (l *BatchSubmitter) loadBlocksIntoState(ctx context.Context) error {
 	var latestBlock *types.Block
 	// Add all blocks to "state"
 	for i := start.Number + 1; i < end.Number+1; i++ {
+		// 加载指定 Number 的区块，校验区块是否需要重新提交
 		block, err := l.loadBlockIntoState(ctx, i)
 		if errors.Is(err, ErrReorg) {
 			l.Log.Warn("Found L2 reorg", "block_number", i)
+			// 若需要重新提交，将 l.lastStoredBlock 置成 eth.BlockID{}；
 			l.lastStoredBlock = eth.BlockID{}
 			return err
 		} else if err != nil {
 			l.Log.Warn("failed to load block into state", "err", err)
 			return err
 		}
+		//不需要重新提交，就将 l.lastStoredBlock 置成 eth.ToBlockID(block)；latestBlock 置成 block
 		l.lastStoredBlock = eth.ToBlockID(block)
 		latestBlock = block
 	}
 
+	//从 L2 块引用源中提取基本的 L2BlockRef 信息，根据区块号判断必要时回退到创世信息
 	l2ref, err := derive.L2BlockToBlockRef(l.RollupConfig, latestBlock)
 	if err != nil {
 		l.Log.Warn("Invalid L2 block loaded into state", "err", err)
@@ -192,11 +199,13 @@ func (l *BatchSubmitter) loadBlockIntoState(ctx context.Context, blockNumber uin
 	if err != nil {
 		return nil, fmt.Errorf("getting L2 client: %w", err)
 	}
+	// 获取区块信息
 	block, err := l2Client.BlockByNumber(ctx, new(big.Int).SetUint64(blockNumber))
 	if err != nil {
 		return nil, fmt.Errorf("getting L2 block: %w", err)
 	}
 
+	// 将区块加到 channelManager 的 blocks []*types.Block 中
 	if err := l.state.AddL2Block(block); err != nil {
 		return nil, fmt.Errorf("adding L2 block to state: %w", err)
 	}
@@ -238,6 +247,7 @@ func (l *BatchSubmitter) calculateL2BlockRangeToStore(ctx context.Context) (eth.
 		return eth.BlockID{}, eth.BlockID{}, errors.New("L2 safe head ahead of L2 unsafe head")
 	}
 
+	// 上一次 L2 的安全区块,L2 当前最高的不安全区块
 	return l.lastStoredBlock, syncStatus.UnsafeL2.ID(), nil
 }
 
@@ -423,17 +433,22 @@ func (l *BatchSubmitter) clearState(ctx context.Context) {
 	}
 }
 
+// publishTxToL1 方法获取要提交的数据数据构建交易发送到 Layer1 网络，并将发送出去的交易扔到 receiptCh chan TxReceipt[T] channel 里面。
 // publishTxToL1 submits a single state tx to the L1
 func (l *BatchSubmitter) publishTxToL1(ctx context.Context, queue *txmgr.Queue[txID], receiptsCh chan txmgr.TxReceipt[txID]) error {
 	// send all available transactions
+	// l1Tip：获取当前 L1 提示作为 L1BlockRef。 假定传递的上下文是生命周期上下文，因此它在内部使用网络超时进行包装。
 	l1tip, err := l.l1Tip(ctx)
 	if err != nil {
 		l.Log.Error("Failed to query L1 tip", "err", err)
 		return err
 	}
+	// recordL1Tip：将上一个 L1BlockRef 更换成 l1Tip 获取到的最新的 L1BlockRef
 	l.recordL1Tip(l1tip)
 
 	// Collect next transaction data
+	//TxData：收集需要 rollup 的交易数据；TxData 返回应提交给 L1 的下一个 tx 数据。 目前，每个事务仅使用一帧。
+	//如果待处理的通道已满，则仅返回该通道的剩余帧，直到成功完全发送到 L1。 如果没有挂起的帧，它将返回 io.EOF。
 	txdata, err := l.state.TxData(l1tip.ID())
 
 	if err == io.EOF {
@@ -444,6 +459,9 @@ func (l *BatchSubmitter) publishTxToL1(ctx context.Context, queue *txmgr.Queue[t
 		return err
 	}
 
+	// sendTransaction 将交易发送到一层，并把交易发送状态更新到 receiptCh chan TxReceipt[T] channel 里面；
+	//sendTransaction 使用给定的“数据”创建交易并将其提交到批处理收件箱地址。
+	//它目前使用底层的“txmgr”来处理交易发送和价格管理。 这是一种阻塞方法。 不应同时调用它。
 	if err = l.sendTransaction(ctx, txdata, queue, receiptsCh); err != nil {
 		return fmt.Errorf("BatchSubmitter.sendTransaction failed: %w", err)
 	}

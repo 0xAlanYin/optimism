@@ -142,7 +142,7 @@ contract L2StandardBridge is StandardBridge, ISemver {
     }
 
     /// @custom:legacy
-    /// @notice Internal function to initiate a withdrawal from L2 to L1 to a target account on L1.
+    /// @notice Internal function to initiate a withdrawal from L2 to L1 to a target account on L1. 发起从 L2 到 L1 提款到 L1 上目标账户的内部函数。
     /// @param _l2Token     Address of the L2 token to withdraw.
     /// @param _from        Address of the withdrawer.
     /// @param _to          Recipient account on L1.

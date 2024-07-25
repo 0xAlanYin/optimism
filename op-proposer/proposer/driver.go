@@ -251,6 +251,7 @@ func (l *L2OutputSubmitter) FetchCurrentBlockNumber(ctx context.Context) (*big.I
 		l.Log.Error("proposer unable to get rollup client", "err", err)
 		return nil, err
 	}
+	//SyncStatus：获取 L2 块的 SafeL2 和 FinalizedL2 的状态和块信息，
 	status, err := rollupClient.SyncStatus(cCtx)
 	if err != nil {
 		l.Log.Error("proposer unable to get sync status", "err", err)
@@ -309,6 +310,7 @@ func (l *L2OutputSubmitter) ProposeL2OutputTxData(output *eth.OutputResponse) ([
 
 // proposeL2OutputTxData creates the transaction data for the ProposeL2Output function
 func proposeL2OutputTxData(abi *abi.ABI, output *eth.OutputResponse) ([]byte, error) {
+	//下面是交易打包的数据细节
 	return abi.Pack(
 		"proposeL2Output",
 		output.OutputRoot,
