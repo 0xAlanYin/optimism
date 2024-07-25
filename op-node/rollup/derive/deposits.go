@@ -15,6 +15,7 @@ func UserDeposits(receipts []*types.Receipt, depositContractAddr common.Address)
 	var out []*types.DepositTx
 	var result error
 	for i, rec := range receipts {
+		// 解析 deposit 事件
 		if rec.Status != types.ReceiptStatusSuccessful {
 			continue
 		}

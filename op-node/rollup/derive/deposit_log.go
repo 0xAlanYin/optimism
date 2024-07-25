@@ -15,7 +15,8 @@ import (
 )
 
 var (
-	DepositEventABI      = "TransactionDeposited(address,address,uint256,bytes)"
+	DepositEventABI = "TransactionDeposited(address,address,uint256,bytes)"
+	// DepositEventABIHash Deposit 事件的哈希
 	DepositEventABIHash  = crypto.Keccak256Hash([]byte(DepositEventABI))
 	DepositEventVersion0 = common.Hash{}
 )

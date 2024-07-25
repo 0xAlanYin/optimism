@@ -328,8 +328,10 @@ abstract contract StandardBridge is Initializable {
         // contracts may override this function in order to emit legacy events as well.
         _emitETHBridgeInitiated(_from, _to, _amount, _extraData);
 
+        // 将 msg 组装，通过 CrossDomainMessenger 发送 sendMessage 事件
         messenger.sendMessage{ value: _amount }({
             _target: address(otherBridge),
+            // 用哈希去生成一个 relay, 用 sendMessage 和 relayMessage 进行交易关联
             _message: abi.encodeWithSelector(this.finalizeBridgeETH.selector, _from, _to, _amount, _extraData),
             _minGasLimit: _minGasLimit
         });

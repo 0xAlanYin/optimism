@@ -551,6 +551,7 @@ contract OptimismPortal is Initializable, ResourceMetering, ISemver {
         // without breaking the current interface.
         bytes memory opaqueData = abi.encodePacked(_mint, _value, _gasLimit, _isCreation, _data);
 
+        // 扩展：op-node 里会监听到这个事件，进行充值的入账
         // Emit a TransactionDeposited event so that the rollup node can derive a deposit
         // transaction for this deposit.
         emit TransactionDeposited(from, _to, DEPOSIT_VERSION, opaqueData);
